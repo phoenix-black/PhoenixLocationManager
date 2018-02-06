@@ -147,16 +147,16 @@ public abstract class PhoenixLocationManager  {
     }
 
 
-    private boolean loadOnStart(){
+    public boolean loadOnStart(){
         return this.connect();
     }
 
 
-    private void loadOnPause(){
+    public void loadOnPause(){
         this.stopLocationUpdates();
     }
 
-    private void loadOnStop(){
+    public void loadOnStop(){
         this.disconnect();
     }
 
