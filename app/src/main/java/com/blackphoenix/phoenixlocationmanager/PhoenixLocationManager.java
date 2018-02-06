@@ -87,7 +87,7 @@ public abstract class PhoenixLocationManager  {
     public PhoenixLocationManager(Context context) throws PhoenixLocationException {
         mContext = context;
 
-        if(isGooglePlayServicesAvailable()){
+        if(!isGooglePlayServicesAvailable()){
             // ToDo Handle it in a better Way
             throw new PhoenixLocationException("Google Play Services Not Available");
         }
