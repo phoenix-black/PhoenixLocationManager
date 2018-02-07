@@ -69,6 +69,7 @@ public class PhoenixLocationManager  {
    // private PxFilterCallbacks mPxFilterCallbacks;
 
 
+
     //
     Context mContext;
 
