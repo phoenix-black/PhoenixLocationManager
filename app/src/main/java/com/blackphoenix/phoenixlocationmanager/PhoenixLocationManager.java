@@ -34,7 +34,7 @@ import java.util.ArrayList;
  * Created by Praba on 2/6/2018.
  *
  */
-public abstract class PhoenixLocationManager  {
+public class PhoenixLocationManager  {
 
     // Static Declarations
     private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 1000;
