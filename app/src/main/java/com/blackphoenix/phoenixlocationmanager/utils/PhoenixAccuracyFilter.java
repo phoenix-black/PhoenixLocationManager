@@ -1,6 +1,10 @@
 package com.blackphoenix.phoenixlocationmanager.utils;
 
 import android.location.Location;
+import android.os.CountDownTimer;
+
+import com.blackphoenix.phoenixlocationmanager.listeners.PxFilterCallbacks;
+import com.blackphoenix.phoenixlocationmanager.listeners.PxFilteredLocationListener;
 
 import java.util.ArrayList;
 
@@ -10,28 +14,112 @@ import java.util.ArrayList;
 
 public class PhoenixAccuracyFilter {
 
+    private final int MIN_TIMEOUT_THRESHOLD = 120000; // 2 Mins
+    private final int RESET_TIMEOUT_THRESHOLD = 30000; // 30 seconds
+
     private boolean initialAccuracyEnabled;
     private boolean trackingAccuracyEnabled;
     private boolean stabilityFilterEnabled;
+    private boolean timerEnabled;
+
     private float initialAccuracyThreshold = 10.0f;
     private float trackingAccuracyThreshold = 10.0f;
     private float meanStability = 1f;
+    private long filterTimeout = MIN_TIMEOUT_THRESHOLD;
 
     private boolean isInitialGPSAccurate;
-
+    private boolean isInitialGPSAccuracyOverridden;
     private boolean isGPSStable;
+    private boolean isGPSStabilityOverridden;
+    private boolean isFilterRunning;
+    private boolean isTimerRunning;
+
+    ArrayList<Location> filterLocationList;
+
+    PxFilteredLocationListener pxFilteredLocationListener;
+    PxFilterCallbacks pxFilterCallbacks;
 
 
     public PhoenixAccuracyFilter(){
 
     }
 
-    public PhoenixAccuracyFilter(float accuracyThreshold, float startPointMean){
-        this.initialAccuracyEnabled = true;
-        this.initialAccuracyThreshold = accuracyThreshold;
-        this.stabilityFilterEnabled = true;
-        this.meanStability = startPointMean;
+    public PhoenixAccuracyFilter(float initialThreshold, float stabilityMean, float trackingThreshold, long timeout){
+
+        if(initialThreshold > 0) {
+            this.initialAccuracyEnabled = true;
+            setInitialAccuracyThreshold(initialThreshold);
+
+        } else if(initialThreshold == 0){
+            this.initialAccuracyEnabled = true;
+            this.initialAccuracyThreshold = 10f;
+
+        } else if(initialThreshold == -1) {
+            this.initialAccuracyEnabled = false;
+        }
+
+
+        if(stabilityMean > 0) {
+            this.stabilityFilterEnabled = true;
+            setMeanStability(stabilityMean);
+
+        } else if(stabilityMean == 0) {
+            this.stabilityFilterEnabled = true;
+            this.meanStability = 1f;
+
+        } else if(stabilityMean == -1){
+            this.stabilityFilterEnabled = false;
+        }
+
+
+        if(trackingThreshold > 0) {
+            this.trackingAccuracyEnabled = true;
+            setTrackingAccuracyThreshold(trackingThreshold);
+
+        } else if(trackingThreshold == 0) {
+            this.trackingAccuracyEnabled = true;
+            this.trackingAccuracyThreshold = 10f;
+
+        } else if(trackingThreshold == -1){
+            this.trackingAccuracyEnabled = true;
+        }
+
+
+        if(timeout > 0) {
+            this.timerEnabled = true;
+            setFilterTimeout(timeout);
+
+        } else if(timeout == 0){
+            this.timerEnabled = true;
+            setFilterTimeout(MIN_TIMEOUT_THRESHOLD);
+
+        } else if(timeout == -1){
+            this.timerEnabled = false;
+        }
     }
+
+    public PhoenixAccuracyFilter loadDefaults(){
+
+        this.initialAccuracyEnabled = true;
+        this.initialAccuracyThreshold = 10f;
+
+        this.stabilityFilterEnabled = true;
+        this.meanStability = 1f;
+
+        this.trackingAccuracyEnabled = true;
+        this.trackingAccuracyThreshold = 10f;
+
+        this.timerEnabled = true;
+        this.filterTimeout = MIN_TIMEOUT_THRESHOLD;
+
+        return this;
+    }
+
+
+    /*
+        Initial Accuracy Status
+
+     */
 
 
     public boolean isInitialAccuracyEnabled() {
@@ -43,21 +131,38 @@ public class PhoenixAccuracyFilter {
     }
 
 
+    /*
+        Stability Filter Status
+
+     */
+
+
+
     public void setStabilityFilterEnabled(boolean stabilityFilterEnabled) {
         this.stabilityFilterEnabled = stabilityFilterEnabled;
-    }
-
-    public boolean isTrackingAccuracyEnabled() {
-        return trackingAccuracyEnabled;
     }
 
     public boolean isStabilityFilterEnabled() {
         return stabilityFilterEnabled;
     }
 
+    /*
+        Tracking Accuracy Status
+
+     */
+
+    public boolean isTrackingAccuracyEnabled() {
+        return trackingAccuracyEnabled;
+    }
+
     public void setTrackingAccuracyEnabled(boolean trackingAccuracyEnabled) {
         this.trackingAccuracyEnabled = trackingAccuracyEnabled;
     }
+
+    /*
+        Initial Accuracy Threshold
+
+     */
 
     public float getInitialAccuracyThreshold() {
         return initialAccuracyThreshold;
@@ -67,6 +172,11 @@ public class PhoenixAccuracyFilter {
         this.initialAccuracyThreshold = initialAccuracyThreshold;
     }
 
+    /*
+       Mean Stability Value
+
+     */
+
     public float getMeanStability() {
         return meanStability;
     }
@@ -74,6 +184,12 @@ public class PhoenixAccuracyFilter {
     public void setMeanStability(float meanStability) {
         this.meanStability = meanStability;
     }
+
+
+    /*
+        Initial GPS Accuracy Status
+
+     */
 
     public boolean isInitialGPSAccurate() {
         return isInitialGPSAccurate;
@@ -83,6 +199,17 @@ public class PhoenixAccuracyFilter {
         isInitialGPSAccurate = initialGPSAccurate;
     }
 
+    public void overrideInitialGPSAccuracy(){
+        isGPSStabilityOverridden = true;
+    }
+
+
+    /*
+        GPS Stability Status
+
+     */
+
+
     public boolean isGPSStable() {
         return isGPSStable;
     }
@@ -90,6 +217,15 @@ public class PhoenixAccuracyFilter {
     public void setGPSStable(boolean GPSStable) {
         isGPSStable = GPSStable;
     }
+
+    public void overrideGPSStability(){
+        isGPSStabilityOverridden = true;
+    }
+
+    /*
+        Tracking Threshold
+     */
+
 
     public float getTrackingAccuracyThreshold() {
         return trackingAccuracyThreshold;
@@ -99,10 +235,108 @@ public class PhoenixAccuracyFilter {
         this.trackingAccuracyThreshold = trackingAccuracyThreshold;
     }
 
+    /*
+        Filter Timeout
+
+     */
+
+
+
+    public long getFilterTimeout() {
+        return filterTimeout;
+    }
+
+    public void setFilterTimeout(long timeout) {
+        if(timeout>=MIN_TIMEOUT_THRESHOLD) {
+            this.filterTimeout = timeout;
+        } else {
+            this.filterTimeout = MIN_TIMEOUT_THRESHOLD;
+        }
+    }
+
+    /*
+
+        Filter Timeout Status
+
+     */
+
+
+    public boolean isTimerEnabled(){
+        return this.timerEnabled;
+    }
+
+    public void setTimerEnabled(boolean status){
+        this.timerEnabled = status;
+    }
+
+
+    /*
+
+        Filter Location Listener
+
+     */
+
+    public void setFilteredLocationListener(PxFilteredLocationListener locationListener){
+        this.pxFilteredLocationListener = locationListener;
+    }
+
+
+    public void addFilterCallbacks(PxFilterCallbacks callbacks){
+        this.pxFilterCallbacks = callbacks;
+    }
+
+
+    /*
+        Filter Operations
+
+     */
+
+
     public void resetFilter(){
         this.isGPSStable = false;
         this.isInitialGPSAccurate = false;
+        this.isGPSStabilityOverridden = false;
+        this.isInitialGPSAccuracyOverridden = false;
+        this.filterLocationList = null;
     }
+
+    public void start(){
+        filterLocationList = new ArrayList<>();
+        this.isFilterRunning = true;
+
+        if(isTimerEnabled()) {
+            this.filterCountDownTimer.start();
+        }
+    }
+
+    public void stop(){
+        this.isFilterRunning = false;
+        resetFilter();
+    }
+
+    public boolean isRunning(){
+        return this.isFilterRunning;
+    }
+
+    protected void restartTimer(long newTime){
+        if(isTimerEnabled()) {
+            if (newTime != 0 && newTime >= RESET_TIMEOUT_THRESHOLD) {
+                filterTimeout = newTime;
+            } else {
+                filterTimeout = RESET_TIMEOUT_THRESHOLD;
+            }
+
+            filterCountDownTimer.start();
+        }
+    }
+
+
+    /*
+
+        Filter Processes
+
+     */
+
 
     public boolean processGPSDataAccuracy(ArrayList<Location> accuracyList) {
 
@@ -110,6 +344,12 @@ public class PhoenixAccuracyFilter {
         float sumAccuracy = 0f;
         // ToDo Why the mean value of 6 is used
         // ToDo Check by increasing/decreasing the mean value
+
+        if(isInitialGPSAccuracyOverridden){
+            return true;
+        }
+
+
         if(accuracyList != null && accuracyList.size()> 6) {
 
             for(int i = 1; i< 6; i++) {
@@ -127,6 +367,8 @@ public class PhoenixAccuracyFilter {
             return isInitialGPSAccurate;
         }
 
+
+
         return false;
     }
 
@@ -137,6 +379,9 @@ public class PhoenixAccuracyFilter {
         float totalDistance = 0f;
         float meanDistance;
 
+        if(isGPSStabilityOverridden){
+            return true;
+        }
 
         if(locationList != null && locationList.size()>6) {
 
@@ -167,4 +412,93 @@ public class PhoenixAccuracyFilter {
 
         return false;
     }
+
+
+
+
+    public void processLocationData(Location location) {
+
+        if(!isRunning()){
+            return;
+        }
+
+        if (isInitialAccuracyEnabled() && !isInitialGPSAccurate()) {
+
+            filterLocationList.add(location);
+
+            if (!processGPSDataAccuracy(filterLocationList)) {
+                return;
+            }
+
+            if (pxFilterCallbacks != null) {
+                pxFilterCallbacks.onInitialAccuracyAchieved();
+            }
+        }
+
+        if (isStabilityFilterEnabled() && !isGPSStable()) {
+
+
+            if (filterLocationList == null) {
+                filterLocationList = new ArrayList<>();
+            }
+
+            if (isTrackingAccuracyEnabled()) {
+                if (location.getAccuracy() <= getTrackingAccuracyThreshold()) {
+                    filterLocationList.add(location);
+                }
+            } else {
+                filterLocationList.add(location);
+            }
+
+            if (!processGPSDataStability(filterLocationList)) {
+                return;
+            }
+
+            if (pxFilterCallbacks != null) {
+                pxFilterCallbacks.onStabilityAchieved();
+            }
+        }
+
+        if (isTrackingAccuracyEnabled()) {
+            if (location.getAccuracy() > getTrackingAccuracyThreshold()) {
+                return;
+            }
+        }
+
+        if(pxFilteredLocationListener !=null){
+            pxFilteredLocationListener.onLocationChanged(location);
+        }
+    }
+
+
+    CountDownTimer filterCountDownTimer = new CountDownTimer(filterTimeout,60000) {
+        @Override
+        public void onTick(long l) {
+
+        }
+
+        @Override
+        public void onFinish() {
+            //stop();
+
+            if (pxFilterCallbacks != null) {
+                pxFilterCallbacks.onTimeOut();
+            }
+
+            if(isInitialAccuracyEnabled()){
+                if(!isInitialGPSAccurate()){
+                    pxFilterCallbacks.onFilterError(new FilterError(FilterError.INITIAL_ACCURACY_TIMEOUT));
+                }
+            }
+
+            if(isStabilityFilterEnabled()){
+                if(!isGPSStable()){
+                    pxFilterCallbacks.onFilterError(new FilterError(FilterError.GPS_STABILITY_TIMEOUT));
+                }
+            }
+
+        }
+    };
+
+
 }

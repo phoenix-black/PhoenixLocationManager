@@ -15,6 +15,9 @@ import android.widget.Toast;
 
 
 import com.blackphoenix.phoenixlocationmanager.kalmanlocationmanager.KalmanLocationManager;
+import com.blackphoenix.phoenixlocationmanager.listeners.PxConnectionCallbacks;
+import com.blackphoenix.phoenixlocationmanager.listeners.PxFilterCallbacks;
+import com.blackphoenix.phoenixlocationmanager.listeners.PxLocationListener;
 import com.blackphoenix.phoenixlocationmanager.utils.PhoenixAccuracyFilter;
 import com.blackphoenix.phoenixlocationmanager.utils.PhoenixLocationRequestConfig;
 import com.google.android.gms.common.ConnectionResult;
@@ -56,10 +59,15 @@ public abstract class PhoenixLocationManager  {
 
 
 
-    public abstract void onPhoenixLocationChanged(Location location);
+/*    public abstract void onPhoenixLocationChanged(Location location);
     public abstract void onAPIConnected(Bundle bundle);
     public abstract void onAPIConnectionSuspended(int i);
-    public abstract void onAPIConnectionFailed(ConnectionResult connectionResult);
+    public abstract void onAPIConnectionFailed(ConnectionResult connectionResult);*/
+
+    private PxConnectionCallbacks mPxConnectionCallbacks;
+    private PxLocationListener mPxLocationListener;
+   // private PxFilterCallbacks mPxFilterCallbacks;
+
 
     //
     Context mContext;
@@ -82,7 +90,7 @@ public abstract class PhoenixLocationManager  {
     // ToDo Add a mthod : addLocationData(Location location) in PhoenixAccuracyFilter
     // ToDo Handle all filter related logic inside that method
 
-    ArrayList<Location> filterLocationList;
+   // ArrayList<Location> filterLocationList;
 
     public PhoenixLocationManager(Context context) throws PhoenixLocationException {
         mContext = context;
@@ -95,7 +103,6 @@ public abstract class PhoenixLocationManager  {
         mKalmanLocationManager = new KalmanLocationManager(context);
         mLocationRequest = new LocationRequest();
         locationRequestConfig = new PhoenixLocationRequestConfig();
-        accuracyFilter = new PhoenixAccuracyFilter();
     }
 
     public PhoenixLocationManager setLocationRequestConfig(PhoenixLocationRequestConfig config){
@@ -127,6 +134,27 @@ public abstract class PhoenixLocationManager  {
 
     public PhoenixLocationManager setKalmanFilterEnabled(boolean enabled){
         this.isKalmanFilterEnabled = enabled;
+        return this;
+    }
+
+
+    public PhoenixLocationManager addConnectionCallbacks(PxConnectionCallbacks connectionCallbacks){
+        this.mPxConnectionCallbacks = connectionCallbacks;
+        return this;
+    }
+
+   /* public PhoenixLocationManager addFilterCallbacks(PxFilterCallbacks filterCallbacks){
+        this.mPxFilterCallbacks = filterCallbacks;
+        return this;
+    }*/
+
+    public PhoenixLocationManager setLocationListener(PxLocationListener locationListener){
+        this.mPxLocationListener = locationListener;
+        return this;
+    }
+
+    public PhoenixLocationManager removeLocationListener(){
+        this.mPxLocationListener = null;
         return this;
     }
 
@@ -198,7 +226,10 @@ public abstract class PhoenixLocationManager  {
             return;
         }
 
-        filterLocationList = new ArrayList<>();
+      //  filterLocationList = new ArrayList<>();
+        if(accuracyFilter!=null && !accuracyFilter.isRunning()) {
+            accuracyFilter.start();
+        }
 
         mKalmanLocationManager.requestLocationUpdates(
                 KalmanLocationManager.UseProvider.GPS_AND_NET,
@@ -213,8 +244,10 @@ public abstract class PhoenixLocationManager  {
 
     public void stopLocationUpdates() {
 
-        filterLocationList = null;
-        accuracyFilter.resetFilter();
+      //  filterLocationList = null;
+        if(accuracyFilter!=null && accuracyFilter.isRunning()) {
+            accuracyFilter.stop();
+        }
 
         if(mGoogleApiClient.isConnected()) {
             mKalmanLocationManager.removeUpdates(mLocationListener);
@@ -257,45 +290,14 @@ public abstract class PhoenixLocationManager  {
         @Override
         public void onLocationChanged(Location location) {
 
-            if(accuracyFilter.isInitialAccuracyEnabled() && !accuracyFilter.isInitialGPSAccurate()){
-
-
-                if(filterLocationList == null) {
-                    filterLocationList = new ArrayList<>();
-                }
-
-                filterLocationList.add(location);
-
-                if (!accuracyFilter.processGPSDataAccuracy(filterLocationList)){
-                    return;
-                }
+            if(mPxLocationListener!=null){
+                mPxLocationListener.onRawLocationChanged(location);
             }
 
-            if(accuracyFilter.isStabilityFilterEnabled() && !accuracyFilter.isGPSStable()){
-
-
-
-                if(filterLocationList == null) {
-                    filterLocationList = new ArrayList<>();
-                }
-
-                if(accuracyFilter.isTrackingAccuracyEnabled() &&
-                        location.getAccuracy() <= accuracyFilter.getTrackingAccuracyThreshold()) {
-                    filterLocationList.add(location);
-                }
-
-                if (!accuracyFilter.processGPSDataStability(filterLocationList)){
-                    return;
-                }
+            if(accuracyFilter!=null && accuracyFilter.isRunning()){
+                accuracyFilter.processLocationData(location);
             }
 
-            if(accuracyFilter.isTrackingAccuracyEnabled()) {
-                if(location.getAccuracy() > accuracyFilter.getTrackingAccuracyThreshold()) {
-                    return;
-                }
-            }
-
-            onPhoenixLocationChanged(location);
         }
     };
 
@@ -303,12 +305,16 @@ public abstract class PhoenixLocationManager  {
         @Override
         public void onConnected(@Nullable Bundle bundle) {
             startLocationUpdates();
-            onAPIConnected(bundle);
+            if(mPxConnectionCallbacks!=null){
+                mPxConnectionCallbacks.onAPIConnected(bundle);
+            }
         }
 
         @Override
         public void onConnectionSuspended(int i) {
-            onAPIConnectionSuspended(i);
+            if(mPxConnectionCallbacks!=null){
+                mPxConnectionCallbacks.onAPIConnectionSuspended(i);
+            }
         }
     };
 
@@ -316,7 +322,9 @@ public abstract class PhoenixLocationManager  {
     GoogleApiClient.OnConnectionFailedListener mConnectionFailedListener = new GoogleApiClient.OnConnectionFailedListener() {
         @Override
         public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-            onAPIConnectionFailed(connectionResult);
+            if(mPxConnectionCallbacks!=null){
+                mPxConnectionCallbacks.onAPIConnectionFailed(connectionResult);
+            }
 
             if(mResultCallBackActivity != null){
                 if(connectionResult.hasResolution()) {
