@@ -2,9 +2,12 @@ package com.blackphoenix.phoenixlocationmanager;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -13,31 +16,38 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.widget.Toast;
 
 
 import com.blackphoenix.phoenixlocationmanager.kalmanlocationmanager.KalmanLocationManager;
+import com.blackphoenix.phoenixlocationmanager.listeners.PxActivityRecognitionListener;
 import com.blackphoenix.phoenixlocationmanager.listeners.PxConnectionCallbacks;
-import com.blackphoenix.phoenixlocationmanager.listeners.PxFilterCallbacks;
 import com.blackphoenix.phoenixlocationmanager.listeners.PxLocationListener;
 import com.blackphoenix.phoenixlocationmanager.utils.PhoenixAccuracyFilter;
 import com.blackphoenix.phoenixlocationmanager.utils.PhoenixLocationRequestConfig;
+import com.blackphoenix.phoenixlocationmanager.utils.PxActivityRecognition;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.ActivityRecognition;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
-import java.util.ArrayList;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Created by Praba on 2/6/2018.
  *
  */
 public class PhoenixLocationManager  {
+
+    // Activity Recognition
 
     // Static Declarations
     private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 1000;
@@ -88,6 +98,12 @@ public class PhoenixLocationManager  {
     PhoenixLocationRequestConfig locationRequestConfig;
     PhoenixAccuracyFilter accuracyFilter;
     Activity mResultCallBackActivity = null;
+
+    // ActivityRecognition
+    Intent activityRecognitionIntentService;
+    PendingIntent activityRecognitionPendingIntent;
+    BroadcastReceiver activityRecognitionBroadcastReceiver;
+    PxActivityRecognitionListener pxActivityRecognitionListener;
 
     //AccuracyFilter
     // ToDo Move the FilerLocation and all related logic List to the PhoenixAccuracyFilter
@@ -144,6 +160,35 @@ public class PhoenixLocationManager  {
         mKalmanLocationManager = new KalmanLocationManager(context);
         mLocationRequest = new LocationRequest();
         locationRequestConfig = new PhoenixLocationRequestConfig();
+
+        // Activity Recognition
+        activityRecognitionIntentService = new Intent(mContext,PhoenixActivityRecognitionService.class);
+        activityRecognitionPendingIntent = PendingIntent.getService( mContext, 0, activityRecognitionIntentService, PendingIntent.FLAG_UPDATE_CURRENT );
+        activityRecognitionBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String Action = intent.getAction();
+                if(Action==null){
+                    return;
+                }
+                if (Action.equals(PxActivityRecognition.BROADCAST_DETECTED_ACTIVITY)) {
+                    String allProbableActivity = intent.getStringExtra(PxActivityRecognition.ALL_PROBABLE_ACTIVITY);
+                    String mostProbableActivity = intent.getStringExtra(PxActivityRecognition.MOST_PROBABLE_ACTIVITY);
+
+                    if(pxActivityRecognitionListener!=null){
+                        try {
+                            pxActivityRecognitionListener.onActivityRecognized(new JSONArray(allProbableActivity),
+                                    new JSONObject(mostProbableActivity));
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                            // ToDo : Handle Here
+                        }
+                    }
+
+                   // handleUserActivity(type, confidence);
+                }
+            }
+        };
     }
 
     public PhoenixLocationManager setLocationRequestConfig(PhoenixLocationRequestConfig config){
@@ -208,6 +253,7 @@ public class PhoenixLocationManager  {
 
         mGoogleApiClient = new GoogleApiClient.Builder(mContext)
                 .addApi(LocationServices.API)
+                .addApi(ActivityRecognition.API)
                 .addConnectionCallbacks(mConnectionCallbacks)
                 .addOnConnectionFailedListener(mConnectionFailedListener)
                 .build();
@@ -223,6 +269,7 @@ public class PhoenixLocationManager  {
 
     public void loadOnPause(){
         this.stopLocationUpdates();
+        this.stopActivityRecognition();
     }
 
     public void loadOnStop(){
@@ -342,10 +389,30 @@ public class PhoenixLocationManager  {
         }
     };
 
+    private void setActivityRecognitionListener(PxActivityRecognitionListener listener){
+        this.pxActivityRecognitionListener = listener;
+    }
+
+    private void startActivityRecognition(){
+        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(mGoogleApiClient,0, activityRecognitionPendingIntent);
+
+        LocalBroadcastManager.getInstance(mContext).registerReceiver(activityRecognitionBroadcastReceiver,
+                new IntentFilter(PxActivityRecognition.BROADCAST_DETECTED_ACTIVITY));
+    }
+
+
+    private void stopActivityRecognition(){
+        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(mGoogleApiClient, activityRecognitionPendingIntent);
+
+        LocalBroadcastManager.getInstance(mContext).unregisterReceiver(activityRecognitionBroadcastReceiver);
+    }
+
+
     GoogleApiClient.ConnectionCallbacks mConnectionCallbacks = new GoogleApiClient.ConnectionCallbacks() {
         @Override
         public void onConnected(@Nullable Bundle bundle) {
             startLocationUpdates();
+            startActivityRecognition();
             if(mPxConnectionCallbacks!=null){
                 mPxConnectionCallbacks.onAPIConnected(bundle);
             }

@@ -318,7 +318,7 @@ public class PhoenixAccuracyFilter {
         return this.isFilterRunning;
     }
 
-    protected void restartTimer(long newTime){
+    public void restartTimer(long newTime){
         if(isTimerEnabled()) {
             if (newTime != 0 && newTime >= RESET_TIMEOUT_THRESHOLD) {
                 filterTimeout = newTime;
@@ -486,13 +486,13 @@ public class PhoenixAccuracyFilter {
             }
 
             if(isInitialAccuracyEnabled()){
-                if(!isInitialGPSAccurate()){
+                if(!isInitialGPSAccurate() && pxFilterCallbacks != null){
                     pxFilterCallbacks.onFilterError(new FilterError(FilterError.INITIAL_ACCURACY_TIMEOUT));
                 }
             }
 
             if(isStabilityFilterEnabled()){
-                if(!isGPSStable()){
+                if(!isGPSStable() && pxFilterCallbacks != null){
                     pxFilterCallbacks.onFilterError(new FilterError(FilterError.GPS_STABILITY_TIMEOUT));
                 }
             }
