@@ -389,7 +389,7 @@ public class PhoenixLocationManager  {
         }
     };
 
-    private void setActivityRecognitionListener(PxActivityRecognitionListener listener){
+    public void setActivityRecognitionListener(PxActivityRecognitionListener listener){
         this.pxActivityRecognitionListener = listener;
     }
 
