@@ -79,23 +79,23 @@ public class PhoenixActivityRecognitionService extends IntentService {
     private String getActivityName(int activityType){
         switch (activityType){
             case DetectedActivity.IN_VEHICLE:
-                return "IN_VEHICLE";
+                return "0";
             case DetectedActivity.ON_BICYCLE:
-                return "ON_BICYCLE";
+                return "1";
             case DetectedActivity.STILL:
-                return "STILL";
+                return "2";
             case DetectedActivity.TILTING:
-                return "TILTING";
+                return "3";
             case DetectedActivity.RUNNING:
-                return "RUNNING";
+                return "4";
             case DetectedActivity.ON_FOOT:
-                return "ON_FOOT";
+                return "5";
             case DetectedActivity.WALKING:
-                return "WALKING";
+                return "6";
             case DetectedActivity.UNKNOWN:
-                return "UNKNOWN";
+                return "7";
         }
-        return "";
+        return "-1";
     }
 
 

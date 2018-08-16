@@ -394,17 +394,34 @@ public class PhoenixLocationManager  {
     }
 
     private void startActivityRecognition(){
-        ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(mGoogleApiClient,0, activityRecognitionPendingIntent);
 
-        LocalBroadcastManager.getInstance(mContext).registerReceiver(activityRecognitionBroadcastReceiver,
-                new IntentFilter(PxActivityRecognition.BROADCAST_DETECTED_ACTIVITY));
+        try {
+            if (pxActivityRecognitionListener != null) {
+                ActivityRecognition.ActivityRecognitionApi.requestActivityUpdates(mGoogleApiClient, 0, activityRecognitionPendingIntent);
+
+                LocalBroadcastManager.getInstance(mContext).registerReceiver(activityRecognitionBroadcastReceiver,
+                        new IntentFilter(PxActivityRecognition.BROADCAST_DETECTED_ACTIVITY));
+            } else {
+                // Log it
+            }
+        }catch (Exception e){
+
+        }
     }
 
 
     private void stopActivityRecognition(){
-        ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(mGoogleApiClient, activityRecognitionPendingIntent);
+        try {
 
-        LocalBroadcastManager.getInstance(mContext).unregisterReceiver(activityRecognitionBroadcastReceiver);
+            if(pxActivityRecognitionListener!=null) {
+                ActivityRecognition.ActivityRecognitionApi.removeActivityUpdates(mGoogleApiClient, activityRecognitionPendingIntent);
+
+                LocalBroadcastManager.getInstance(mContext).unregisterReceiver(activityRecognitionBroadcastReceiver);
+            }
+        } catch (Exception e){
+
+        }
+
     }
 
 
