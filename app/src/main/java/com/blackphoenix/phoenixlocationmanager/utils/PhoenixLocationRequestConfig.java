@@ -11,6 +11,7 @@ public class PhoenixLocationRequestConfig {
     public final static int MODE_SLOW = 0;
     public final static int MODE_FAST = 1;
     public final static int MODE_GENERAL = 2;
+    public final static int MODE_SLOW_ZERO_DISTANCE = 3;
 
     public final static int PRIORITY_HIGH = LocationRequest.PRIORITY_HIGH_ACCURACY;
     public final static int PRIORITY_POWER = LocationRequest.PRIORITY_LOW_POWER;
@@ -66,6 +67,11 @@ public class PhoenixLocationRequestConfig {
                 setLocationRequestDisplacement(5); // 5 meters
                 setLocationRequestPriority(PRIORITY_HIGH);
                 return this;
+            case MODE_SLOW_ZERO_DISTANCE:
+                setLocationRequestInterval(30000); // 0 second
+                setLocationRequestFastestInterval(10000); // 0 second
+                setLocationRequestDisplacement(0); // 0 meter
+                setLocationRequestPriority(PRIORITY_HIGH);
             case MODE_GENERAL:
             default:
                 setLocationRequestInterval(1000); // 1 Second

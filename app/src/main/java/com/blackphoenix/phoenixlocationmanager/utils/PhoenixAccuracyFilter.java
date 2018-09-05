@@ -298,6 +298,9 @@ public class PhoenixAccuracyFilter {
         this.isGPSStabilityOverridden = false;
         this.isInitialGPSAccuracyOverridden = false;
         this.filterLocationList = null;
+        if(filterCountDownTimer!=null){
+            filterCountDownTimer.cancel();
+        }
     }
 
     public void start(){
