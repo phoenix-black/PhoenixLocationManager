@@ -85,7 +85,7 @@ public class PhoenixLocationManager  {
 
     //
     Context mContext;
-
+    private boolean IS_DEBUG = false;
 
     // Kalman Filter
 
@@ -146,6 +146,15 @@ public class PhoenixLocationManager  {
         AlertDialog alert = alertDialogBuilder.create();
         alert.show();
 
+    }
+
+    public PhoenixLocationManager setDebugEnabled(boolean status){
+        this.IS_DEBUG = status;
+        return this;
+    }
+
+    public boolean isDebugEnabled(){
+        return IS_DEBUG;
     }
 
 
@@ -300,7 +309,8 @@ public class PhoenixLocationManager  {
 
 
     public void startLocationUpdates() {
-        Toast.makeText(mContext, "Starting Location Updates", Toast.LENGTH_SHORT).show();
+        if(IS_DEBUG)
+            Toast.makeText(mContext, "Starting Location Updates", Toast.LENGTH_SHORT).show();
         // Start Location Updates
         if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
